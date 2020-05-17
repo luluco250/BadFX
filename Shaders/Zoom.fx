@@ -87,8 +87,35 @@ uniform float ZoomAmount
 		"Amount of zoom applied to the image.\n"
 		"\nDefault: 10.0";
 	ui_min = 1.0;
-	ui_max = 100.0;
-> = 10.0;
+	ui_max = 10.0;
+> = 3.0;
+
+uniform float ZoomAreaSize
+<
+	__UNIFORM_SLIDER_FLOAT1
+
+	ui_label = "Zoom Area Size";
+	ui_tooltip =
+		"Defines the size of a small circular area to display the zoomed image "
+		"within.\n"
+		"Set to 0.0 to disable this.\n"
+		"\nDefault: 0.0";
+	ui_min = 0.0;
+	ui_max = 1.0;
+> = 0.0;
+
+uniform float2 ZoomAreaPosition
+<
+	__UNIFORM_SLIDER_FLOAT1
+
+	ui_label = "Zoom Area Position";
+	ui_tooltip =
+		"Position of the zoomed area in the screen.\n"
+		"0.5 represents the screen center.\n"
+		"\nDefault: 0.5 0.5";
+	ui_min = 0.0;
+	ui_max = 1.0;
+> = 0.5;
 
 uniform float2 CenterPoint
 <
@@ -158,28 +185,73 @@ float2 scale_uv(float2 uv, float2 scale, float2 pivot)
 	return mad((uv - pivot), scale, pivot);
 }
 
+/*
+	An area is defined as:
+		x: Left coordinate.
+		y: Bottom coordinate.
+		z: Right coordinate.
+		w: Top coordinate.
+*/
+float contains(float4 area, float2 uv)
+{
+	return
+		step(area.x, uv.x) *
+		step(uv.x, area.z) *
+		step(area.y, uv.y) *
+		step(uv.y, area.w);
+}
+
 //#endregion
 
 //#region Shaders
 
 float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 {
-	float2 pivot = FollowMouse ? MousePoint * ReShade::PixelSize : 0.5;
-	pivot = saturate(pivot);
+	float zoom = rcp(ZoomAmount);
 
-	uv =
+	float2 pivot;
+
+	if (FollowMouse)
+	{
+		pivot = MousePoint * BUFFER_PIXEL_SIZE;
+		pivot = saturate(pivot);
+	}
+	else if (ZoomAreaSize > 0.0)
+	{
+		pivot = (1.0 - ZoomAreaPosition);
+		pivot = scale_uv(pivot, zoom, 0.5);
+		pivot = saturate(pivot);
+	}
+	else
+	{
+		pivot = 0.5;
+	}
+
+	float2 zoom_uv =
 		#if !ZOOM_ALWAYS_ZOOM
 			#if ZOOM_REVERSE
 				!
 			#endif
 			ShouldZoom ?
 		#endif
-		scale_uv(uv, rcp(ZoomAmount), pivot)
+		scale_uv(uv, zoom, pivot)
 		#if !ZOOM_ALWAYS_ZOOM
 			: uv
 		#endif
 		;
-	
+
+	if (ZoomAreaSize > 0.0)
+	{
+		float2 area_uv = scale_uv(zoom_uv, float2(BUFFER_ASPECT_RATIO, 1.0), 0.5);
+		float in_area = step(distance(area_uv, 0.5), ZoomAreaSize * zoom);
+
+		uv = lerp(uv, zoom_uv, in_area);
+	}
+	else
+	{
+		uv = zoom_uv;
+	}
+
 	return tex2D(BackBuffer, uv);
 }
 
