@@ -1,7 +1,6 @@
 //#region Preprocessor
 
 #include "ReShade.fxh"
-#include "ReShadeUI.fxh"
 #include "BadFX/KeyCodes.fxh"
 
 // Alt key.
@@ -107,47 +106,42 @@ uniform int Mode
 
 uniform float ZoomAmount
 <
-	__UNIFORM_SLIDER_FLOAT1
-
 	ui_label = "Zoom Amount";
 	ui_tooltip =
 		"Amount of zoom applied to the image.\n"
 		"\nDefault: 10.0";
+	ui_type = "slider";
 	ui_min = 1.0;
 	ui_max = 10.0;
 > = 3.0;
 
 uniform float ZoomAreaSize
 <
-	__UNIFORM_SLIDER_FLOAT1
-
 	ui_label = "Zoom Area Size";
 	ui_tooltip =
 		"Defines the size of a small circular area to display the zoomed image "
 		"within.\n"
 		"Set to 0.0 to disable this.\n"
 		"\nDefault: 0.0";
+	ui_type = "slider";
 	ui_min = 0.0;
 	ui_max = 1.0;
 > = 0.0;
 
 uniform float2 ZoomAreaPosition
 <
-	__UNIFORM_SLIDER_FLOAT1
-
 	ui_label = "Zoom Area Position";
 	ui_tooltip =
 		"Position of the zoomed area in the screen.\n"
 		"0.5 represents the screen center.\n"
 		"\nDefault: 0.5 0.5";
+	ui_type = "slider";
 	ui_min = 0.0;
 	ui_max = 1.0;
 > = 0.5;
 
 uniform float2 CenterPoint
 <
-	__UNIFORM_DRAG_FLOAT2
-
 	ui_label = "Center Point";
 	ui_tooltip =
 		"The center point of zoom in the screen.\n"
@@ -158,6 +152,7 @@ uniform float2 CenterPoint
 		" (1.0, 1.0) - Bottom right.\n"
 		" (0.0, 1.0) - Bottom left.\n"
 		"\nDefault: 0.5 0.5";
+	ui_type = "drag";
 	ui_min = 0.0;
 	ui_max = 1.0;
 	ui_step = 0.001;
