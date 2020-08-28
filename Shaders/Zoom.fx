@@ -3,7 +3,6 @@
 #include "ReShade.fxh"
 #include "BadFX/KeyCodes.fxh"
 
-// Alt key.
 #ifndef ZOOM_HOTKEY
 #define ZOOM_HOTKEY VK_MENU
 #endif
@@ -43,8 +42,6 @@
 //#endregion
 
 //#region Constants
-
-// static const bool SmoothZoom = ZOOM_SMOOTH_ZOOM != 0;
 
 static const int Mode_Normal = 0;
 static const int Mode_Reversed = 1;
@@ -168,7 +165,7 @@ uniform bool FollowMouse
 		"\nDefault: Off";
 > = false;
 
-uniform float2 MousePoint < source = "mousepoint"; >;
+uniform float2 MousePoint <source = "mousepoint";>;
 
 uniform bool ShouldZoom
 <
@@ -204,23 +201,7 @@ sampler BackBuffer
 
 float2 ScaleCoord(float2 uv, float2 scale, float2 pivot)
 {
-	return mad((uv - pivot), scale, pivot);
-}
-
-/*
-	An area is defined as:
-		x: Left coordinate.
-		y: Bottom coordinate.
-		z: Right coordinate.
-		w: Top coordinate.
-*/
-float Contains(float4 area, float2 uv)
-{
-	return
-		step(area.x, uv.x) *
-		step(uv.x, area.z) *
-		step(area.y, uv.y) *
-		step(uv.y, area.w);
+	return mad(uv - pivot, scale, pivot);
 }
 
 //#endregion
@@ -229,7 +210,7 @@ float Contains(float4 area, float2 uv)
 
 float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 {
-	float zoom = rcp(ZoomAmount);
+	const float zoom = rcp(ZoomAmount);
 	float2 pivot;
 
 	if (FollowMouse)
@@ -239,7 +220,7 @@ float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 	}
 	else if (ZoomAreaSize > 0.0)
 	{
-		pivot = (1.0 - ZoomAreaPosition);
+		pivot = 1.0 - ZoomAreaPosition;
 		pivot = ScaleCoord(pivot, zoom, 0.5);
 		pivot = saturate(pivot);
 	}
