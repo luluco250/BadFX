@@ -106,11 +106,11 @@ uniform float ZoomAmount
 	ui_label = "Zoom Amount";
 	ui_tooltip =
 		"Amount of zoom applied to the image.\n"
-		"\nDefault: 10.0";
+		"\nDefault: 2.0";
 	ui_type = "slider";
 	ui_min = 1.0;
 	ui_max = 10.0;
-> = 3.0;
+> = 2.0;
 
 uniform float ZoomAreaSize
 <
@@ -182,6 +182,27 @@ uniform bool ShouldZoom
 	#endif
 >;
 
+#if ZOOM_SMOOTH_ZOOM
+
+uniform float SmoothDelay
+<
+	ui_label = "Smooth Delay";
+	ui_tooltip =
+		"Determines the time in seconds it takes for the zoom to be fully "
+		"enabled or disabled.\n"
+		"It's preferable to set ZOOM_SMOOTH_ZOOM to 0 instead of setting this "
+		"value to 0.0, as it has a (very) small resource usage.\n"
+		"\nDefault: 0.2";
+	ui_type = "drag";
+	ui_min = 0.0;
+	ui_max = 3.0;
+	ui_step = 0.01;
+> = 0.2;
+
+uniform float FrameTime <source = "frametime";>;
+
+#endif
+
 //#endregion
 
 //#region Textures
@@ -195,6 +216,16 @@ sampler BackBuffer
 	#endif
 };
 
+#if ZOOM_SMOOTH_ZOOM
+
+texture CurrentZoomTex { Format = R32F; };
+sampler CurrentZoom { Texture = CurrentZoomTex; };
+
+texture LastZoomTex { Format = R32F; };
+sampler LastZoom { Texture = LastZoomTex; };
+
+#endif
+
 //#endregion
 
 //#region Functions
@@ -204,9 +235,36 @@ float2 ScaleCoord(float2 uv, float2 scale, float2 pivot)
 	return mad(uv - pivot, scale, pivot);
 }
 
+bool IsEnabled()
+{
+	return
+		Mode == Mode_AlwaysEnabled ||
+		(Mode == Mode_Normal) == ShouldZoom;
+}
+
 //#endregion
 
 //#region Shaders
+
+#if ZOOM_SMOOTH_ZOOM
+
+float4 GetZoomPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
+{
+	float lastZoom = tex2Dfetch(LastZoom, 0).x;
+	float deltaTime = FrameTime * 0.001;
+
+	if (SmoothDelay > 0.0)
+		return lerp(lastZoom, IsEnabled(), saturate(deltaTime / SmoothDelay));
+	else
+		return 1.0;
+}
+
+float4 SaveZoomPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
+{
+	return tex2Dfetch(CurrentZoom, 0.0);
+}
+
+#endif
 
 float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 {
@@ -231,12 +289,18 @@ float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 
 	float2 zoomUv = ScaleCoord(uv, zoom, pivot);
 
-	if (
-		Mode == Mode_Normal && !ShouldZoom ||
-		Mode == Mode_Reversed && ShouldZoom)
+	#if ZOOM_SMOOTH_ZOOM
 	{
-		zoomUv = uv;
+		float zoomPercent = tex2Dfetch(CurrentZoom, 0).x;
+		zoomUv = lerp(uv, zoomUv, zoomPercent);
 	}
+	#else
+	{
+		if (!IsEnabled())
+			zoomUv = uv;
+	}
+	#endif
+
 
 	if (ZoomAreaSize > 0.0)
 	{
@@ -250,9 +314,7 @@ float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 		uv = zoomUv;
 	}
 
-	float4 color = tex2D(BackBuffer, uv);
-
-	return color;
+	return tex2D(BackBuffer, uv);
 }
 
 //#endregion
@@ -261,7 +323,24 @@ float4 MainPS(float4 p : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 
 technique Zoom
 {
-	pass
+	#if ZOOM_SMOOTH_ZOOM
+
+	pass GetZoom
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GetZoomPS;
+		RenderTarget = CurrentZoomTex;
+	}
+	pass SaveZoom
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = SaveZoomPS;
+		RenderTarget = LastZoomTex;
+	}
+
+	#endif
+
+	pass Main
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = MainPS;
